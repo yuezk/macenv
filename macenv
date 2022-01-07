@@ -189,7 +189,14 @@ parse_args() {
 	ensure_launchd_conf_file
 
 	if [ "$1" == "--uninstall" ]; then
-		uninstall
+		echo "Are you sure you want to uninstall the tool? (y/N)"
+		read -r answer
+		if [ "${answer}" == "y" ] || [ "${answer}" == "Y" ]; then
+			uninstall
+		else
+			echo "Aborted"
+			exit 0
+		fi
 	fi
 
 	if [ "$1" == "set" ]; then
