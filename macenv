@@ -1,0 +1,224 @@
+#!/bin/bash
+
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+DEBUG=${DEBUG:-0}
+
+PLIST_FILE="${HOME}/Library/LaunchAgents/local.launchd.conf.plist"
+LAUNCHD_CONF_FILE="${HOME}/.launchd.conf"
+
+debug() {
+	if [ $DEBUG -eq 1 ]; then
+		echo "DEBUG: $1"
+	fi
+}
+
+usage() {
+	cat <<EOF
+Usage: ${SCRIPT_NAME} [set|get|unset|list|load|clear] [key] [value]
+
+Set environment variables for GUI applications.
+
+Subcommands:
+
+set	Set environment variable
+get	Get environment variable
+unset	Unset environment variable
+list	List all environment variables
+load	Load environment variables
+clear	Clear all environment variables
+
+Available options:
+
+-h, --help	Show this help message
+--uninstall	Uninstall the tool
+EOF
+	exit 0
+}
+
+assert_args_count() {
+	local args_count_actual=$1
+	local args_count_expected=$2
+	if [ $args_count_actual -ne $args_count_expected ]; then
+		echo "ERROR: Invalid number of arguments"
+		usage
+	fi
+}
+
+update_plist_file() {
+	debug "Updating plist file: ${PLIST_FILE}"
+	cat <<EOF > "${PLIST_FILE}"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>local.launchd.conf</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>bash</string>
+    <string>-l</string>
+    <string>-c</string>
+    <string>${SCRIPT_PATH}/${SCRIPT_NAME} load</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>
+EOF
+}
+
+ensure_launchd_conf_file() {
+	if [ ! -f "${LAUNCHD_CONF_FILE}" ]; then
+		debug "Creating launchd.conf file: ${LAUNCHD_CONF_FILE}"
+		touch "${LAUNCHD_CONF_FILE}"
+	fi
+}
+
+load_launchd() {
+	debug "Loading ${PLIST_FILE}"
+	launchctl load -w "${PLIST_FILE}"
+}
+
+unload_launchd() {
+	debug "Unloading launchd"
+	launchctl list | grep -q "local.launchd.conf" && launchctl unload -w "${PLIST_FILE}"
+}
+
+reload_launchd() {
+	debug "Reloading launchd"
+
+	unload_launchd
+	update_plist_file
+	load_launchd
+
+	echo "Environment variables reloaded. Now relaunch your GUI apps to make them aware."
+	echo "For command line apps, launch a new Terminal session."
+}
+
+set_env() {
+	local key="${1}"
+	local value="${2}"
+
+	ensure_launchd_conf_file
+
+	grep -q "^setenv ${key}" "${LAUNCHD_CONF_FILE}"
+	if [ $? -eq 0 ]; then
+		debug "Environment variable ${key} already set"
+		debug "Updating environment variable ${key} value to \"${value}\""
+		sed -i '' "s/^setenv ${key}.*/setenv ${key} \"${value}\"/" "${LAUNCHD_CONF_FILE}"
+	else
+		debug "Setting environment variable ${key} to \"${value}\""
+		echo "setenv ${key} \"${value}\"" >> "${LAUNCHD_CONF_FILE}"
+	fi
+
+	reload_launchd
+}
+
+get_env() {
+	launchctl getenv "$1"
+}
+
+list_env() {
+	while read -r line; do
+		grep -q "^setenv" <<< "${line}"
+		if [ $? -eq 0 ]; then
+			local key="$(cut -d " " -f 2 <<< "${line}")"
+			local value=$(get_env "${key}")
+			echo "${key}=${value}"
+		fi
+	done < "${LAUNCHD_CONF_FILE}"
+}
+
+load_env() {
+	local env_vars
+
+	while read -r line; do
+		grep -q "^setenv" <<< "${line}"
+		if [ $? -eq 0 ]; then
+			env_vars=$(sed -e "s/^setenv //" <<< "${line}")
+			debug "Setting environment variable ${env_vars}"
+			eval "launchctl ${line}"
+		fi
+	done < "${LAUNCHD_CONF_FILE}"
+}
+
+clear_env() {
+	local key="${1}"
+
+	grep -q "^setenv ${key}" "${LAUNCHD_CONF_FILE}"
+	if [ $? -eq 0 ]; then
+		debug "Removing environment variable: ${key} from ${LAUNCHD_CONF_FILE}"
+		sed -i '' "/^setenv ${key}/d" "${LAUNCHD_CONF_FILE}"
+		launchctl unsetenv "${key}"
+	fi
+
+	reload_launchd
+}
+
+clear_all() {
+	while read -r line; do
+		grep -q "^setenv" "${LAUNCHD_CONF_FILE}"
+		local key="$(echo "${line}" | cut -d ' ' -f 2)"
+		clear_env "${key}"
+	done < "${LAUNCHD_CONF_FILE}"
+}
+
+unset_env() {
+	local key="${1}"
+
+	clear_env "${key}"
+	reload_launchd
+}
+
+uninstall() {
+	unload_launchd
+	rm -f "${PLIST_FILE}"
+	rm -f "${LAUNCHD_CONF_FILE}"
+	echo "Uninstalled"
+	exit 0
+}
+
+parse_args() {
+	if [ $# -eq 0 ]; then
+		usage
+	fi
+
+	if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+		usage
+	fi
+
+	if [ "$1" == "--uninstall" ]; then
+		uninstall
+	fi
+
+	if [ "$1" == "set" ]; then
+		assert_args_count $# 3
+		set_env "${2}" "${3}"
+	elif [ "$1" == "get" ]; then
+		assert_args_count $# 2
+		get_env "$2"
+	elif [ "$1" == "unset" ]; then
+		assert_args_count $# 2
+		unset_env "$2"
+	elif [ "$1" == "list" ]; then
+		assert_args_count $# 1
+		list_env
+	elif [ "$1" == "load" ]; then
+		assert_args_count $# 1
+		load_env
+	elif [ "$1" == "clear" ]; then
+		assert_args_count $# 1
+		echo "Clearing all environment variables"
+		echo "Are you sure? [y/N]"
+		read -r answer
+		if [ "${answer}" == "y" ] || [ "${answer}" == "Y" ]; then
+			clear_all
+		fi
+	else
+		echo "Error: Invalid subcommand"
+		usage
+	fi
+}
+
+parse_args "$@"
