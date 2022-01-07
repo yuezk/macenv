@@ -21,6 +21,7 @@ Then relaunch your GUI apps to make them aware. For command line apps, launch a 
 
 ```
 ./macenv --uninstall
+rm -rf ~/.macenv
 ```
 
 ## LICENSE
