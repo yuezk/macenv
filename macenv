@@ -100,8 +100,6 @@ set_env() {
 	local key="${1}"
 	local value="${2}"
 
-	ensure_launchd_conf_file
-
 	grep -q "^setenv ${key}" "${LAUNCHD_CONF_FILE}"
 	if [ $? -eq 0 ]; then
 		debug "Environment variable ${key} already set"
@@ -152,8 +150,6 @@ clear_env() {
 		sed -i '' "/^setenv ${key}/d" "${LAUNCHD_CONF_FILE}"
 		launchctl unsetenv "${key}"
 	fi
-
-	reload_launchd
 }
 
 clear_all() {
@@ -162,6 +158,7 @@ clear_all() {
 		local key="$(echo "${line}" | cut -d ' ' -f 2)"
 		clear_env "${key}"
 	done < "${LAUNCHD_CONF_FILE}"
+	reload_launchd
 }
 
 unset_env() {
@@ -191,6 +188,8 @@ parse_args() {
 	if [ "$1" == "--uninstall" ]; then
 		uninstall
 	fi
+
+	ensure_launchd_conf_file
 
 	if [ "$1" == "set" ]; then
 		assert_args_count $# 3

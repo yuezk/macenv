@@ -15,6 +15,8 @@ View the available options with `~/.macenv --help`.
 ~/.macenv set JAVA_HOME /path/to/java/home
 ```
 
+Then relaunch your GUI apps to make them aware. For command line apps, launch a new Terminal session.
+
 ## Uninstall
 
 ```
