@@ -158,7 +158,6 @@ clear_all() {
 		local key="$(echo "${line}" | cut -d ' ' -f 2)"
 		clear_env "${key}"
 	done < "${LAUNCHD_CONF_FILE}"
-	reload_launchd
 }
 
 unset_env() {
@@ -169,6 +168,8 @@ unset_env() {
 }
 
 uninstall() {
+	echo "Clearing all environment variables..."
+	clear_all
 	unload_launchd
 	rm -f "${PLIST_FILE}"
 	rm -f "${LAUNCHD_CONF_FILE}"
@@ -185,11 +186,11 @@ parse_args() {
 		usage
 	fi
 
+	ensure_launchd_conf_file
+
 	if [ "$1" == "--uninstall" ]; then
 		uninstall
 	fi
-
-	ensure_launchd_conf_file
 
 	if [ "$1" == "set" ]; then
 		assert_args_count $# 3
@@ -213,6 +214,7 @@ parse_args() {
 		read -r answer
 		if [ "${answer}" == "y" ] || [ "${answer}" == "Y" ]; then
 			clear_all
+			reload_launchd
 		fi
 	else
 		echo "Error: Invalid subcommand"
