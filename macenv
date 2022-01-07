@@ -15,7 +15,7 @@ debug() {
 
 usage() {
 	cat <<EOF
-Usage: ${SCRIPT_NAME} [set|get|unset|list|load|clear] [key] [value]
+Usage: ${SCRIPT_NAME} <set|get|unset|list|load|clear> [key] [value]
 
 Set environment variables for GUI applications.
 
