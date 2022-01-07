@@ -1,7 +1,7 @@
 # macenv
 Set environment variables for GUI applications in macOS.
 
-## Install
+## Install/Update
 
 ```bash
 curl -L https://raw.githubusercontent.com/yuezk/macenv/main/macenv > $HOME/.macenv && chmod +x $HOME/.macenv
@@ -20,7 +20,7 @@ Then relaunch your GUI apps to make them aware. For command line apps, launch a 
 ## Uninstall
 
 ```
-./macenv --uninstall
+~/.macenv --uninstall
 rm -rf ~/.macenv
 ```
 
