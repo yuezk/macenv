@@ -1,8 +1,12 @@
 #!/bin/bash
+VERBOSE=${VERBOSE:-0}
+if [ $VERBOSE -eq 1 ]; then
+  set -x
+fi
 
+DEBUG=${DEBUG:-0}
 SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
-DEBUG=${DEBUG:-0}
 
 PLIST_FILE="${HOME}/Library/LaunchAgents/local.launchd.conf.plist"
 LAUNCHD_CONF_FILE="${HOME}/.launchd.conf"
@@ -104,7 +108,7 @@ set_env() {
 	if [ $? -eq 0 ]; then
 		debug "Environment variable ${key} already set"
 		debug "Updating environment variable ${key} value to \"${value}\""
-		sed -i '' "s/^setenv ${key}.*/setenv ${key} \"${value}\"/" "${LAUNCHD_CONF_FILE}"
+		sed -i '' "s|^setenv ${key}.*|setenv ${key} \"${value}\"|" "${LAUNCHD_CONF_FILE}"
 	else
 		debug "Setting environment variable ${key} to \"${value}\""
 		echo "setenv ${key} \"${value}\"" >> "${LAUNCHD_CONF_FILE}"
