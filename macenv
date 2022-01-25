@@ -7,6 +7,7 @@ fi
 DEBUG=${DEBUG:-0}
 SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+SCRIPT_VERSION="1.0.0"
 
 PLIST_FILE="${HOME}/Library/LaunchAgents/local.launchd.conf.plist"
 LAUNCHD_CONF_FILE="${HOME}/.launchd.conf"
@@ -19,9 +20,9 @@ debug() {
 
 usage() {
 	cat <<EOF
-Usage: ${SCRIPT_NAME} <set|get|unset|list|load|clear> [key] [value]
-
 Set environment variables for GUI applications.
+
+Usage: ${SCRIPT_NAME} <set|get|unset|list|load|clear> [key] [value]
 
 Subcommands:
 
@@ -35,6 +36,7 @@ clear	Clear all environment variables
 Available options:
 
 -h, --help	Show this help message
+-v, --version	Show version
 --uninstall	Uninstall the tool
 EOF
 	exit 0
@@ -122,14 +124,21 @@ get_env() {
 }
 
 list_env() {
+	local is_empty=1
+
 	while read -r line; do
 		grep -q "^setenv" <<< "${line}"
 		if [ $? -eq 0 ]; then
+			is_empty=0
 			local key="$(cut -d " " -f 2 <<< "${line}")"
 			local value=$(get_env "${key}")
 			echo "${key}=${value}"
 		fi
 	done < "${LAUNCHD_CONF_FILE}"
+
+	if [ $is_empty -eq 1 ]; then
+		echo "No environment variables set"
+	fi
 }
 
 load_env() {
@@ -188,6 +197,11 @@ parse_args() {
 
 	if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
 		usage
+	fi
+
+	if [ "$1" == "-v" ] || [ "$1" == "--version" ]; then
+		echo "${SCRIPT_NAME} ${SCRIPT_VERSION}"
+		exit 0
 	fi
 
 	ensure_launchd_conf_file
